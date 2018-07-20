@@ -3,8 +3,16 @@
 	"core" : true,
 	"name" : "mapit I/O",
     "description": "This plugin adds the mapit I/O features to CloudCompare.
-                    You have to open the mapit-repository description file (*.mapit).
-                    The supported entity types are:
+                    You have to create and open the mapit-cloudcompare file (*.cc-mapit).
+                    Which has to have the following setup:<br>
+
+<br>                --workspace     # identifier for next line
+<br>                ws              # the workspace to open
+<br>                --files         # identifier for next lines
+<br>                /input/         # this must can be read as .*/input/.*
+<br>                /other-input/   # other data .*/other-input/.*
+<br>
+<br>                The supported entity types are:
 		<ul>
         <li>Pointclouds</li>
 		</ul>",

@@ -37,8 +37,8 @@ class /*QCC_IO_LIB_API*/ MapitFilter : public FileIOFilter
 public:
 
 	//static accessors
-	static inline QString GetFileFilter() { return "Loads mapit repositories by loading the repository description file (*.mapit)"; }
-	static inline QString GetDefaultExtension() { return "mapit"; }
+	static inline QString GetFileFilter() { return "Loads a mapit repositories by loading the (*.cc-mapit) file placed in a mapits repo home folder"; }
+	static inline QString GetDefaultExtension() { return "cc-mapit"; }
 
 	//inherited from FileIOFilter
 	virtual bool importSupported() const override { return true; }

@@ -55,7 +55,7 @@ const int MAX_ASCII_FILE_LINE_LENGTH = 4096;
 
 bool MapitFilter::canLoadExtension(const QString& upperCaseExt) const
 {
-	return (upperCaseExt == "MAPIT");
+	return (upperCaseExt == "CC-MAPIT");
 }
 
 bool MapitFilter::canSave(CC_CLASS_ENUM type, bool& multiple, bool& exclusive) const
@@ -66,7 +66,7 @@ bool MapitFilter::canSave(CC_CLASS_ENUM type, bool& multiple, bool& exclusive) c
 
 CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& container, LoadParameters& parameters)
 {
-	// open file to check what should be loaded
+	// open cc-mapit file to read what of the repo should be loaded
 	std::ifstream def_file(filename.toStdString());
 	std::vector<std::string> files_to_load;
 	std::string workspace_to_load;
@@ -88,7 +88,7 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 		}
 	}
 
-	// open mapit repo
+	// open the mapit repo within the cc-mapit file is located
 	std::string filename_std = filename.toStdString();
 	if ( filename_std.find("/") == std::string::npos ) {
 		return CC_FERR_UNKNOWN_FILE;
@@ -109,6 +109,7 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 	container_current->addChild(container_new);
 	container_current = container_new;
 
+	// go though whole workspace and load all selected files to CC
 	workspace->depthFirstSearch(
 				  [&](std::shared_ptr<mapit::msgs::Tree> obj, const mapit::msgs::ObjectReference& ref, const mapit::Path &path) {
 					  if (0 == path.compare("")) {
