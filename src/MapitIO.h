@@ -37,7 +37,7 @@ class /*QCC_IO_LIB_API*/ MapitFilter : public FileIOFilter
 public:
 
 	//static accessors
-	static inline QString GetFileFilter() { return "Loads a mapit repositories by loading the (*.cc-mapit) file placed in a mapits repo home folder"; }
+	static inline QString GetFileFilter() { return "mapit repository (*.cc-mapit)"; }
 	static inline QString GetDefaultExtension() { return "cc-mapit"; }
 
 	//inherited from FileIOFilter
@@ -47,9 +47,18 @@ public:
 	virtual QString getDefaultExtension() const override { return GetDefaultExtension(); }
 	virtual bool canLoadExtension(const QString& upperCaseExt) const override;
 	virtual bool canSave(CC_CLASS_ENUM type, bool& multiple, bool& exclusive) const override;
+	virtual CC_FILE_ERROR saveToFile(ccHObject* entity, const QString& filename, const SaveParameters& parameters);
 
 private:
-	CC_FILE_ERROR load_pointcloud(std::shared_ptr<mapit::Workspace> workspace, std::shared_ptr<mapit::msgs::Entity> obj, const mapit::Path &path, ccHObject* container);
+	const std::string _PREFIX_WORKSPACE_ = "workspace_";
+	std::string name_workspace_;
+	std::vector<std::string> name_files_;
+	std::string frame_id_;
+	std::string cc_mapit_file_name_ = "";
+	std::shared_ptr<mapit::Workspace> workspace_;
+
+	CC_FILE_ERROR load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const mapit::Path &path, ccHObject* container);
+	CC_FILE_ERROR store_transform(ccHObject* entity, std::string mapit_entity_name);
 };
 
 #endif //CC_MAPIT_FILTER_HEADER

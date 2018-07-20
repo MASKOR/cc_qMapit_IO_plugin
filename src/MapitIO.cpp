@@ -60,31 +60,57 @@ bool MapitFilter::canLoadExtension(const QString& upperCaseExt) const
 
 bool MapitFilter::canSave(CC_CLASS_ENUM type, bool& multiple, bool& exclusive) const
 {
-	//export not supported
+	if (type == CC_TYPES::POINT_CLOUD || type == CC_TYPES::GBL_SENSOR)
+	{
+		multiple = true;
+		exclusive = true;
+		return true;
+	}
+
 	return false;
 }
 
 CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& container, LoadParameters& parameters)
 {
+	// only one mapit repo can be loaded at once!!!
+	if (cc_mapit_file_name_ != "" && cc_mapit_file_name_ != filename.toStdString()) {
+		ccLog::Error(QString::fromStdString(
+						 "Can only load one mapit repo with one CloudCompare instance\n"
+						 "Currently loaded is: " + cc_mapit_file_name_
+						 )
+					);
+		return CC_FERR_BAD_ARGUMENT;
+	} else {
+		cc_mapit_file_name_ = filename.toStdString();
+	}
+
 	// open cc-mapit file to read what of the repo should be loaded
-	std::ifstream def_file(filename.toStdString());
-	std::vector<std::string> files_to_load;
-	std::string workspace_to_load;
+	std::ifstream def_file(cc_mapit_file_name_);
 	std::string line;
-	bool read_workspace = true;
+	enum FilePartToRead {
+		WORKSPACE,
+		FILES,
+		FRAME_ID,
+		UNKNOWN
+	} file_part_to_be_read = FilePartToRead::UNKNOWN;
 	while (std::getline(def_file, line)) {
 		if (0 == line.compare("--workspace")) {
-			read_workspace = true;
+			file_part_to_be_read = FilePartToRead::WORKSPACE;
 			continue;
 		} else if (0 == line.compare("--files")){
-			read_workspace = false;
+			file_part_to_be_read = FilePartToRead::FILES;
+			continue;
+		} else if (0 == line.compare("--frame_id")) {
+			file_part_to_be_read = FilePartToRead::FRAME_ID;
 			continue;
 		}
 
-		if (read_workspace) {
-			workspace_to_load = line;
-		} else {
-			files_to_load.push_back( line );
+		if        (file_part_to_be_read == FilePartToRead::WORKSPACE) {
+			name_workspace_ = line;
+		} else if (file_part_to_be_read == FilePartToRead::FILES) {
+			name_files_.push_back( line );
+		} else if (file_part_to_be_read == FilePartToRead::FRAME_ID) {
+			frame_id_ = line;
 		}
 	}
 
@@ -98,19 +124,19 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 
 	ccHObject* container_current = &container;
 
-	std::shared_ptr<mapit::Workspace> workspace = repo->getWorkspace(workspace_to_load);
-	if (workspace == nullptr) {
+	workspace_ = repo->getWorkspace(name_workspace_);
+	if (workspace_ == nullptr) {
 		// error
 		return CC_FERR_BAD_ARGUMENT;
 	}
 	ccHObject* container_new = new ccHObject();
-	container_new->setName(QString::fromStdString( "workspace_"+workspace_to_load ));
+	container_new->setName(QString::fromStdString( _PREFIX_WORKSPACE_ + name_workspace_ ));
 	container_new->setEnabled(false);
 	container_current->addChild(container_new);
 	container_current = container_new;
 
 	// go though whole workspace and load all selected files to CC
-	workspace->depthFirstSearch(
+	workspace_->depthFirstSearch(
 				  [&](std::shared_ptr<mapit::msgs::Tree> obj, const mapit::msgs::ObjectReference& ref, const mapit::Path &path) {
 					  if (0 == path.compare("")) {
 						  return true;
@@ -135,31 +161,32 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 					  return true;
 				  }
 				, [&](std::shared_ptr<mapit::msgs::Entity> obj, const mapit::msgs::ObjectReference& ref, const mapit::Path &path) {
+					  // check if this entity should be loaded to CC
 					  bool found = false;
-					  for (std::string file : files_to_load) {
+					  for (std::string file : name_files_) {
 						  if (path.find(file) != std::string::npos) {
 							  found = true;
 							  break;
 						  }
 					  }
-					  if (!found) {
-						  // stop this function here
-						  return true;
-					  }
+					  if (found) {
+						  QString name = QString::fromStdString( path.substr(path.find_last_of("/") + 1, path.length()) );
 
-					  QString name = QString::fromStdString( path.substr(path.find_last_of("/") + 1, path.length()) );
+						  ccHObject* container_new = new ccHObject();
+						  container_new->setName(name);
+						  container_new->setEnabled(false);
 
-					  ccHObject* container_new = new ccHObject();
-					  container_new->setName(name);
-					  container_new->setEnabled(false);
+						  if ( 0 == obj->type().compare(PointcloudEntitydata::TYPENAME()) ) {
+							  load_pointcloud(obj, path, container_new);
 
-					  if ( 0 == obj->type().compare(PointcloudEntitydata::TYPENAME()) ) {
-						  load_pointcloud(workspace, obj, path, container_new);
-
-						  container_current->addChild(container_new);
-					  } else {
-						  std::cout << "Mapit entity " << path << " of type " << obj->type() << " is not supported" << std::endl;
-						  delete container_new;
+							  container_current->addChild(container_new);
+						  } else {
+							  ccLog::Print(QString::fromStdString(
+													"Mapit entity " + path + " of type " + obj->type() + " is not supported"
+													)
+										  );
+							  delete container_new;
+						  }
 					  }
 
 					  return true;
@@ -171,13 +198,15 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 }
 
 CC_FILE_ERROR
-MapitFilter::load_pointcloud(std::shared_ptr<mapit::Workspace> workspace, std::shared_ptr<mapit::msgs::Entity> obj, const mapit::Path &path, ccHObject* container)
+MapitFilter::load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const mapit::Path &path, ccHObject* container)
 {
-	std::shared_ptr<mapit::AbstractEntitydata> entity_data_abstract = workspace->getEntitydataReadOnly(path);
+	std::shared_ptr<mapit::AbstractEntitydata> entity_data_abstract = workspace_->getEntitydataReadOnly(path);
 	std::shared_ptr<PointcloudEntitydata> entity_data = std::static_pointer_cast<PointcloudEntitydata>(entity_data_abstract);
 
 	std::shared_ptr<pcl::PCLPointCloud2> cloud_ptr_in = entity_data->getData();
 	boost::shared_ptr<pcl::PCLPointCloud2> cloud_ptr = boost::make_shared<pcl::PCLPointCloud2>(*cloud_ptr_in);
+
+	// TODO transform to frame_id_
 
 	Eigen::Vector4f origin;
 	Eigen::Quaternionf orientation;
@@ -224,6 +253,7 @@ MapitFilter::load_pointcloud(std::shared_ptr<mapit::Workspace> workspace, std::s
 		}
 
 		ccGBLSensor* sensor = new ccGBLSensor;
+		sensor->setName(QString::fromStdString(frame_id_));
 		sensor->setRigidTransformation(ccRot);
 		sensor->setYawStep(static_cast<PointCoordinateType>(0.05));
 		sensor->setPitchStep(static_cast<PointCoordinateType>(0.05));
@@ -243,4 +273,53 @@ MapitFilter::load_pointcloud(std::shared_ptr<mapit::Workspace> workspace, std::s
 	}
 
 	container->addChild(ccCloud);
+}
+
+CC_FILE_ERROR
+MapitFilter::saveToFile(ccHObject* entity, const QString& filename, const SaveParameters& parameters)
+{
+	// can only write to same mapit repo
+	if (cc_mapit_file_name_ != filename.toStdString()) {
+		ccLog::Error(QString::fromStdString(
+						 "The data can only be stored in the mapit repo that was opend originaly\n"
+						 "The opend mapit repo is: " + cc_mapit_file_name_
+						 )
+					 );
+		return CC_FERR_BAD_ARGUMENT;
+	}
+	std::string type = "unknown";
+	if (entity->isA(CC_TYPES::POINT_CLOUD)) {
+		type = "Pointcloud";
+	} else if (entity->isA(CC_TYPES::GBL_SENSOR)) {
+		type = "Transform";
+	}
+	// get complete mapit name by combining all parrents
+	std::string mapit_entity_name = "";
+	ccHObject* tmp = entity->getParent();
+	while (tmp && 0 != tmp->getName().toStdString().compare(_PREFIX_WORKSPACE_ + name_workspace_)) {
+		mapit_entity_name = "/" + tmp->getName().toStdString() + mapit_entity_name;
+		tmp = tmp->getParent();
+	}
+	std::cout << "In workspace: " << name_workspace_ << std::endl
+			  << "Store " << type << std::endl
+			  << "Mapit name:       " << mapit_entity_name << std::endl
+			  << " with name          " << entity->getName().toStdString() << std::endl
+			  << "Parrent name:       " << entity->getParent()->getName().toStdString() << std::endl
+			  << "Grandparrents name: " << entity->getParent()->getParent()->getName().toStdString() << std::endl;
+
+	if (entity->isA(CC_TYPES::POINT_CLOUD)) {
+		// TODO
+		return CC_FERR_NOT_IMPLEMENTED;
+	} else if (entity->isA(CC_TYPES::GBL_SENSOR)) {
+		return store_transform(entity, mapit_entity_name);
+	} else {
+		return CC_FERR_UNKNOWN_FILE;
+	}
+	return CC_FERR_NOT_IMPLEMENTED;
+}
+
+CC_FILE_ERROR
+MapitFilter::store_transform(ccHObject* entity, std::string mapit_entity_name)
+{
+	return CC_FERR_NO_ERROR;
 }

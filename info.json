@@ -6,6 +6,8 @@
                     You have to create and open the mapit-cloudcompare file (*.cc-mapit).
                     Which has to have the following setup:<br>
 
+<br>                --frame_id      # identifier for next line
+<br>                sensor          # the frame_id of the data
 <br>                --workspace     # identifier for next line
 <br>                ws              # the workspace to open
 <br>                --files         # identifier for next lines
