@@ -10,7 +10,6 @@ if (INSTALL_QMAPIT_IO_PLUGIN)
 	include_directories( src )
 
 	add_subdirectory( src )
-	add_subdirectory( ui )
 
 	include( ../../CMakePluginTpl.cmake )
 endif()

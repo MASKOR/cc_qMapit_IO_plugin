@@ -37,10 +37,6 @@ public:
 	virtual QString getDefaultExtension() const override { return GetDefaultExtension(); }
 	virtual bool canLoadExtension(const QString& upperCaseExt) const override;
 	virtual bool canSave(CC_CLASS_ENUM type, bool& multiple, bool& exclusive) const override;
-
-protected:
-
-	static int LoadCalibratedImages(ccHObject* entities, const QString& path, const QString& imageDescFilename, const ccBBox& globalBBox);
 };
 
 #endif //CC_MAPIT_FILTER_HEADER

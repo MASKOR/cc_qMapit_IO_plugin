@@ -2,9 +2,11 @@
 	"type" : "I/O",
 	"core" : true,
 	"name" : "mapit I/O",
-	"description": "This plugin adds the mapit I/O features to CloudCompare:
+    "description": "This plugin adds the mapit I/O features to CloudCompare.
+                    You have to open the mapit-repository description file (*.mapit).
+                    The supported entity types are:
 		<ul>
-		<li> Open the mapit-repository description file (*.mapit)</li>
+        <li>Pointclouds</li>
 		</ul>",
 	"authors" : [
 		{
