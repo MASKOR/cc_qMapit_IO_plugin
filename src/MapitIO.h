@@ -21,6 +21,16 @@
 
 #include "FileIOFilter.h"
 
+#include <memory>
+
+namespace mapit {
+namespace msgs {
+class Entity;
+}
+typedef std::string Path;
+class Workspace;
+}
+
 //! Calibrated images and cloud meta-file I/O filter
 class /*QCC_IO_LIB_API*/ MapitFilter : public FileIOFilter
 {
@@ -37,6 +47,9 @@ public:
 	virtual QString getDefaultExtension() const override { return GetDefaultExtension(); }
 	virtual bool canLoadExtension(const QString& upperCaseExt) const override;
 	virtual bool canSave(CC_CLASS_ENUM type, bool& multiple, bool& exclusive) const override;
+
+private:
+	CC_FILE_ERROR load_pointcloud(std::shared_ptr<mapit::Workspace> workspace, std::shared_ptr<mapit::msgs::Entity> obj, const mapit::Path &path, ccHObject* container);
 };
 
 #endif //CC_MAPIT_FILTER_HEADER
