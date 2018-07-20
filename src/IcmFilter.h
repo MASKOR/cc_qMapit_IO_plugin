@@ -12,22 +12,23 @@
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
 //#          COPYRIGHT: EDF R&D / TELECOM ParisTech (ENST-TSI)             #
+//#                     Tobias Neumann                                     #
 //#                                                                        #
 //##########################################################################
 
-#ifndef CC_ICM_FILTER_HEADER
-#define CC_ICM_FILTER_HEADER
+#ifndef CC_MAPIT_FILTER_HEADER
+#define CC_MAPIT_FILTER_HEADER
 
 #include "FileIOFilter.h"
 
 //! Calibrated images and cloud meta-file I/O filter
-class /*QCC_IO_LIB_API*/ IcmFilter : public FileIOFilter
+class /*QCC_IO_LIB_API*/ MapitFilter : public FileIOFilter
 {
 public:
 
 	//static accessors
-	static inline QString GetFileFilter() { return "Clouds + calibrated images [meta][ascii] (*.icm)"; }
-	static inline QString GetDefaultExtension() { return "icm"; }
+	static inline QString GetFileFilter() { return "Loads mapit repositories by loading the repository description file (*.mapit)"; }
+	static inline QString GetDefaultExtension() { return "mapit"; }
 
 	//inherited from FileIOFilter
 	virtual bool importSupported() const override { return true; }
@@ -42,4 +43,4 @@ protected:
 	static int LoadCalibratedImages(ccHObject* entities, const QString& path, const QString& imageDescFilename, const ccBBox& globalBBox);
 };
 
-#endif //CC_ICM_FILTER_HEADER
+#endif //CC_MAPIT_FILTER_HEADER

@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.0)
 
-option( INSTALL_QADDITIONAL_IO_PLUGIN "Check to install qAdditionalIO plugin" OFF )
+option( INSTALL_QMAPIT_IO_PLUGIN "Check to install qMapitIO plugin" OFF )
 
-if (INSTALL_QADDITIONAL_IO_PLUGIN)
-	project( QADDITIONAL_IO_PLUGIN )
+if (INSTALL_QMAPIT_IO_PLUGIN)
+  project( QMAPIT_IO_PLUGIN )
 
 	set( CC_IS_IO_PLUGIN 1 )
 

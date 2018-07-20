@@ -1,5 +1,5 @@
 <RCC>
-  <qresource prefix="/CC/plugin/qAdditionalIO" >
+  <qresource prefix="/CC/plugin/qMapitIO" >
     <file>info.json</file>
   </qresource>
 </RCC>

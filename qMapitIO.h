@@ -1,9 +1,9 @@
-#ifndef Q_ADDITIONAL_IO_PLUGIN_HEADER
-#define Q_ADDITIONAL_IO_PLUGIN_HEADER
+#ifndef Q_MAPIT_IO_PLUGIN_HEADER
+#define Q_MAPIT_IO_PLUGIN_HEADER
 
 //##########################################################################
 //#                                                                        #
-//#         CLOUDCOMPARE PLUGIN: qAdditionalIO                             #
+//#         CLOUDCOMPARE PLUGIN: qMapitIO                                  #
 //#                                                                        #
 //#  This program is free software; you can redistribute it and/or modify  #
 //#  it under the terms of the GNU General Public License as published by  #
@@ -15,23 +15,24 @@
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
 //#          COPYRIGHT: CloudCompare project                               #
+//#                     Tobias Neumann                                     #
 //#                                                                        #
 //##########################################################################
 
 #include "ccIOFilterPluginInterface.h"
 
 //! Additional I/O Formats
-class qAdditionalIO : public QObject, public ccIOFilterPluginInterface
+class qMapitIO : public QObject, public ccIOFilterPluginInterface
 {
 	Q_OBJECT
 	Q_INTERFACES(ccIOFilterPluginInterface)
 	
-	Q_PLUGIN_METADATA(IID "cccorp.cloudcompare.plugin.qAdditionalIO" FILE "info.json")
+	Q_PLUGIN_METADATA(IID "cccorp.cloudcompare.plugin.qMapitIO" FILE "info.json")
 
 public:
-	explicit qAdditionalIO( QObject* parent = nullptr );
+	explicit qMapitIO( QObject* parent = nullptr );
 	
-	virtual ~qAdditionalIO() = default;
+	virtual ~qMapitIO() = default;
 
 	virtual void registerCommands(ccCommandLineInterface* cmd) override;
 	

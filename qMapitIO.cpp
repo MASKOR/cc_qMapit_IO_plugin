@@ -1,6 +1,6 @@
 //##########################################################################
 //#                                                                        #
-//#         CLOUDCOMPARE PLUGIN: qAdditionalIO                             #
+//#         CLOUDCOMPARE PLUGIN: qMapitIO                                  #
 //#                                                                        #
 //#  This program is free software; you can redistribute it and/or modify  #
 //#  it under the terms of the GNU General Public License as published by  #
@@ -12,45 +12,27 @@
 //#  GNU General Public License for more details.                          #
 //#                                                                        #
 //#          COPYRIGHT: CloudCompare project                               #
+//#                     Tobias Neumann                                     #
 //#                                                                        #
 //##########################################################################
 
-#include "qAdditionalIO.h"
+#include "qMapitIO.h"
 
-#include "BundlerCommand.h"
-
-#include "BundlerFilter.h"
 #include "IcmFilter.h"
-#include "PNFilter.h"
-#include "PovFilter.h"
-#include "PVFilter.h"
-#include "SalomeHydroFilter.h"
-#include "SinusxFilter.h"
-#include "SoiFilter.h"
 
-
-qAdditionalIO::qAdditionalIO( QObject* parent ) :
+qMapitIO::qMapitIO( QObject* parent ) :
 	QObject( parent )
-  , ccIOFilterPluginInterface( ":/CC/plugin/qAdditionalIO/info.json" )
+  , ccIOFilterPluginInterface( ":/CC/plugin/qMapitIO/info.json" )
 {
 }
 
-void qAdditionalIO::registerCommands( ccCommandLineInterface *cmd )
-{
-	cmd->registerCommand( ccCommandLineInterface::Command::Shared( new BundlerCommand ) );	
-}
+void qMapitIO::registerCommands( ccCommandLineInterface *cmd )
+{ }
 
-QVector<FileIOFilter::Shared> qAdditionalIO::getFilters()
+QVector<FileIOFilter::Shared> qMapitIO::getFilters()
 {
 	return QVector<FileIOFilter::Shared>{
-		FileIOFilter::Shared( new BundlerFilter ),
-		FileIOFilter::Shared( new IcmFilter ),
-		FileIOFilter::Shared( new PNFilter ),
-		FileIOFilter::Shared( new PovFilter ),
-		FileIOFilter::Shared( new PVFilter ),
-		FileIOFilter::Shared( new SalomeHydroFilter ),
-		FileIOFilter::Shared( new SinusxFilter ),
-		FileIOFilter::Shared( new SoiFilter ),
+		FileIOFilter::Shared( new MapitFilter ),
 	};
 }
 
