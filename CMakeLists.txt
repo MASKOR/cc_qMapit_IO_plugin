@@ -17,7 +17,7 @@ if (INSTALL_QMAPIT_IO_PLUGIN)
   add_definitions(${PCL_DEFINITIONS})
 
 # To connect to the repo
-  find_package(mapit)
+  find_package(mapit REQUIRED)
 
   include_directories(
     src
@@ -31,10 +31,9 @@ if (INSTALL_QMAPIT_IO_PLUGIN)
   include_directories(${QPCL_PLUGIN_UTILS_LIB_SOURCE_DIR}/utils)
 
   target_link_libraries(${PROJECT_NAME}
-    ${mapit_interface}
-    ${mapit_interface_cpp}
     ${mapit_standard_repository_factory}
     layertype_pointcloud2
+    mapit_operators_load_tfs
     ${PCL_LIBRARIES}
     QPCL_PLUGIN_UTILS_LIB
     )

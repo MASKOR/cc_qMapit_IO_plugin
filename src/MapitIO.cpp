@@ -316,5 +316,80 @@ MapitFilter::saveToFile(ccHObject* entity, const QString& filename, const SavePa
 CC_FILE_ERROR
 MapitFilter::store_transform(ccHObject* entity, std::string mapit_entity_name)
 {
+	if (entity->getName().toStdString() == frame_id_) {
+		ccLog::Error(QString::fromStdString(
+						 "Entity name is same as frame_id from cc-mapit file\n"
+						 "Transforms are created from <entity name> -> <frame_id from cc-mapit>"
+						 )
+					 );
+		return CC_FERR_BAD_ARGUMENT;
+	}
+
+	std::string frame_id = entity->getName().toStdString();
+	std::string child_frame_id = frame_id_;
+
+	// get the header information of the entity that the transform belongs to
+	std::shared_ptr<mapit::msgs::Entity> mapit_entity = workspace_->getEntity(mapit_entity_name);
+	if ( ! mapit_entity) {
+		// TODO error => mapit repo not as expected
+		return CC_FERR_MALFORMED_FILE;
+	}
+
+	// get the rotation
+	ccGBLSensor* cc_sensor = static_cast<ccGBLSensor*>(entity);
+	ccGLMatrix cc_matrix = cc_sensor->getRigidTransformation();
+
+	float* R1 = cc_matrix.getColumn(0);
+	float* R2 = cc_matrix.getColumn(1);
+	float* R3 = cc_matrix.getColumn(2);
+	float* R4 = cc_matrix.getColumn(3);
+
+	Eigen::Matrix3f rot_matrix;
+	rot_matrix(0,0) = R1[0]; rot_matrix(0,1) = R2[0]; rot_matrix(0,2) = R3[0];
+	rot_matrix(1,0) = R1[1]; rot_matrix(1,1) = R2[1]; rot_matrix(1,2) = R3[1];
+	rot_matrix(2,0) = R1[2]; rot_matrix(2,1) = R2[2]; rot_matrix(2,2) = R3[2];
+
+	Eigen::Quaternionf rot_quaternion(rot_matrix);
+
+	// execute the operator to store the transform
+	mapit::msgs::OperationDescription desc;
+	desc.mutable_operator_()->set_operatorname("load_tfs");
+	desc.set_params("{"
+					"	  \"prefix\" : \"tf\""
+					"	, \"transforms\" : ["
+					"			{"
+					"				  \"static\" : false"
+					"				, \"header\" : {"
+					"					  \"frame_id\" : \"" + frame_id + "\"" +
+					"					, \"stamp\" : {"
+					"						  \"sec\" : " + std::to_string( mapit_entity->stamp().sec() ) +
+					"						, \"nsec\" : "  + std::to_string( mapit_entity->stamp().nsec() ) +
+					"					  }"
+					"				  }"
+					"				, \"transform\" : {"
+					"					  \"child_frame_id\" : \"" + child_frame_id + "\"" +
+					"					, \"translation\" : {"
+					"						  \"x\" : " + std::to_string( R4[0] ) +
+					"						, \"y\" : " + std::to_string( R4[1] ) +
+					"						, \"z\" : " + std::to_string( R4[2] ) +
+					"					  }"
+					"					, \"rotation\" : {"
+					"						  \"w\" : " + std::to_string( rot_quaternion.w() ) +
+					"						, \"x\" : " + std::to_string( rot_quaternion.x() ) +
+					"						, \"y\" : " + std::to_string( rot_quaternion.y() ) +
+					"						, \"z\" : " + std::to_string( rot_quaternion.z() ) +
+					"					  }"
+					"				  }"
+					"			}"
+					"		]"
+					"}"
+					);
+	ccLog::Print(QString::fromStdString(
+					 "Execute mapit operator " + desc.operator_().operatorname() + " with params:\n"
+					 + desc.params()
+					 )
+				 );
+	workspace_->doOperation(desc);
+
 	return CC_FERR_NO_ERROR;
 }
