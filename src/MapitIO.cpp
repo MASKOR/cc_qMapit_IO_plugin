@@ -208,9 +208,6 @@ MapitFilter::load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const map
 
 	// TODO transform to frame_id_
 
-	Eigen::Vector4f origin;
-	Eigen::Quaternionf orientation;
-
 //	PCLCloud::Ptr cloud_ptr;
 //	if (!cloud_ptr_in->is_dense) //data may contain NaNs --> remove them
 //	{
@@ -239,17 +236,15 @@ MapitFilter::load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const map
 		// get orientation as rot matrix and copy it into a ccGLMatrix
 		ccGLMatrix ccRot;
 		{
-			Eigen::Matrix3f eigrot = orientation.toRotationMatrix();
 			float* X = ccRot.getColumn(0);
 			float* Y = ccRot.getColumn(1);
 			float* Z = ccRot.getColumn(2);
+			float* S = ccRot.getColumn(3);
 			//Warning: Y and Z are inverted
-			X[0] =  eigrot(0,0); X[1] =  eigrot(1,0); X[2] =  eigrot(2,0);
-			Y[0] = -eigrot(0,2); Y[1] = -eigrot(1,2); Y[2] = -eigrot(2,2);
-			Z[0] =  eigrot(0,1); Z[1] =  eigrot(1,1); Z[2] =  eigrot(2,1);
-
-			ccRot.getColumn(3)[3] = 1.0f;
-			ccRot.setTranslation(origin.data());
+			X[0] = 1.0f; X[1] = 0.0f; X[2] = 0.0f; X[3] = 0.0f;
+			Y[0] = 0.0f; Y[1] = 1.0f; Y[2] = 0.0f; Y[3] = 0.0f;
+			Z[0] = 0.0f; Z[1] = 0.0f; Z[2] = 1.0f; Z[3] = 0.0f;
+			S[0] = 0.0f; S[1] = 0.0f; S[2] = 0.0f; S[2] = 1.0f;
 		}
 
 		ccGBLSensor* sensor = new ccGBLSensor;
