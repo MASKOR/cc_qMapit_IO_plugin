@@ -16,7 +16,7 @@
 //#                                                                        #
 //##########################################################################
 
-#include "IcmFilter.h"
+#include "MapitIO.h"
 
 //qCC_db
 #include <ccImage.h>

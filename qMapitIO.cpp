@@ -18,7 +18,7 @@
 
 #include "qMapitIO.h"
 
-#include "IcmFilter.h"
+#include "MapitIO.h"
 
 qMapitIO::qMapitIO( QObject* parent ) :
 	QObject( parent )
