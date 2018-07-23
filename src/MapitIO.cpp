@@ -47,6 +47,150 @@
 #include <mapit/depthfirstsearch.h>
 #include <mapit/layertypes/pointcloudlayer.h>
 
+//mapit transform
+#include <mapit/layertypes/tflayer/tf2/buffer_core.h>
+
+/*
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2010, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *
+ *
+ */
+void
+transformPointCloud(const Eigen::Matrix4f &transform, const pcl::PCLPointCloud2 &in,
+					pcl::PCLPointCloud2 &out)
+{
+	// Get X-Y-Z indices
+	int x_idx = pcl::getFieldIndex (in, "x");
+	int y_idx = pcl::getFieldIndex (in, "y");
+	int z_idx = pcl::getFieldIndex (in, "z");
+
+	if (x_idx == -1 || y_idx == -1 || z_idx == -1) {
+		log_error("pointcloud2: Input dataset has no X-Y-Z coordinates! Cannot convert to Eigen format.");
+		throw MAPIT_STATUS_INVALID_DATA;
+	}
+
+	if (in.fields[x_idx].datatype != pcl::PCLPointField::FLOAT32 ||
+		in.fields[y_idx].datatype != pcl::PCLPointField::FLOAT32 ||
+		in.fields[z_idx].datatype != pcl::PCLPointField::FLOAT32) {
+		log_error("pointcloud2: X-Y-Z coordinates not floats. Currently only floats are supported.");
+		throw MAPIT_STATUS_INVALID_DATA;
+	}
+
+	// Check if distance is available
+	int dist_idx = pcl::getFieldIndex(in, "distance");
+
+	// Copy the other data
+	if (&in != &out) {
+		out.header = in.header;
+		out.height = in.height;
+		out.width  = in.width;
+		out.fields = in.fields;
+		out.is_bigendian = in.is_bigendian;
+		out.point_step   = in.point_step;
+		out.row_step     = in.row_step;
+		out.is_dense     = in.is_dense;
+		out.data.resize (in.data.size ());
+		// Copy everything as it's faster than copying individual elements
+		memcpy(&out.data[0], &in.data[0], in.data.size ());
+	}
+
+	Eigen::Array4i xyz_offset (in.fields[x_idx].offset, in.fields[y_idx].offset, in.fields[z_idx].offset, 0);
+
+	for (size_t i = 0; i < in.width * in.height; ++i) {
+		Eigen::Vector4f pt (*(float*)&in.data[xyz_offset[0]], *(float*)&in.data[xyz_offset[1]], *(float*)&in.data[xyz_offset[2]], 1);
+		Eigen::Vector4f pt_out;
+
+		bool max_range_point = false;
+		int distance_ptr_offset = i*in.point_step + in.fields[dist_idx].offset;
+		float* distance_ptr = (dist_idx < 0 ? NULL : (float*)(&in.data[distance_ptr_offset]));
+		if (!std::isfinite (pt[0]) || !std::isfinite (pt[1]) || !std::isfinite (pt[2])) {
+			if (distance_ptr==NULL || !std::isfinite(*distance_ptr)) { // Invalid point
+				pt_out = pt;
+			}
+			else { // max range point
+				pt[0] = *distance_ptr;  // Replace x with the x value saved in distance
+				pt_out = transform * pt;
+				max_range_point = true;
+				//std::cout << pt[0]<<","<<pt[1]<<","<<pt[2]<<" => "<<pt_out[0]<<","<<pt_out[1]<<","<<pt_out[2]<<"\n";
+			}
+		}
+		else {
+			pt_out = transform * pt;
+		}
+
+		if (max_range_point) {
+			// Save x value in distance again
+			*(float*)(&out.data[distance_ptr_offset]) = pt_out[0];
+			pt_out[0] = std::numeric_limits<float>::quiet_NaN();
+		}
+
+		memcpy (&out.data[xyz_offset[0]], &pt_out[0], sizeof (float));
+		memcpy (&out.data[xyz_offset[1]], &pt_out[1], sizeof (float));
+		memcpy (&out.data[xyz_offset[2]], &pt_out[2], sizeof (float));
+
+		xyz_offset += in.point_step;
+	}
+
+	// Check if the viewpoint information is present
+	int vp_idx = pcl::getFieldIndex (in, "vp_x");
+	if (vp_idx != -1) {
+		// Transform the viewpoint info too
+		for (size_t i = 0; i < out.width * out.height; ++i)
+		{
+			float *pstep = (float*)&out.data[i * out.point_step + out.fields[vp_idx].offset];
+			// Assume vp_x, vp_y, vp_z are consecutive
+			Eigen::Vector4f vp_in (pstep[0], pstep[1], pstep[2], 1);
+			Eigen::Vector4f vp_out = transform * vp_in;
+
+			pstep[0] = vp_out[0];
+			pstep[1] = vp_out[1];
+			pstep[2] = vp_out[2];
+		}
+	}
+}
+
+void
+transformPointCloud(const mapit::tf::TransformStamped& transform, const pcl::PCLPointCloud2& in,
+					pcl::PCLPointCloud2& out)
+{
+	Eigen::Affine3f mat;
+	mat.matrix().block<3, 3>(0, 0) = transform.transform.rotation.toRotationMatrix();
+	mat.matrix()(0, 3) = transform.transform.translation.x();
+	mat.matrix()(1, 3) = transform.transform.translation.y();
+	mat.matrix()(2, 3) = transform.transform.translation.z();
+	transformPointCloud(mat.matrix(), in, out);
+}
+
 //typedef pcl::PCLPointCloud2 PCLCloud;
 
 //Max number of characters per line in an ASCII file
@@ -207,6 +351,20 @@ MapitFilter::load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const map
 	boost::shared_ptr<pcl::PCLPointCloud2> cloud_ptr = boost::make_shared<pcl::PCLPointCloud2>(*cloud_ptr_in);
 
 	// TODO transform to frame_id_
+	mapit::tf2::BufferCore tf_buffer(workspace_.get(), "/tf/");
+	mapit::tf::TransformStamped tf;
+	try {
+		tf = tf_buffer.lookupTransform(frame_id_, obj->frame_id(), mapit::time::from_msg(obj->stamp()));
+	} catch (...) {
+		ccLog::Error(QString::fromStdString(
+						 "Can't lookup transform " + frame_id_ + " -> " + obj->frame_id()
+						 + " at time " + mapit::time::to_string( mapit::time::from_msg(obj->stamp()) )
+						 )
+					 );
+		return CC_FERR_BAD_ARGUMENT;
+	}
+	transformPointCloud(tf, *cloud_ptr_in, *cloud_ptr);
+
 
 //	PCLCloud::Ptr cloud_ptr;
 //	if (!cloud_ptr_in->is_dense) //data may contain NaNs --> remove them
@@ -295,12 +453,7 @@ MapitFilter::saveToFile(ccHObject* entity, const QString& filename, const SavePa
 		mapit_entity_name = "/" + tmp->getName().toStdString() + mapit_entity_name;
 		tmp = tmp->getParent();
 	}
-	std::cout << "In workspace: " << name_workspace_ << std::endl
-			  << "Store " << type << std::endl
-			  << "Mapit name:       " << mapit_entity_name << std::endl
-			  << " with name          " << entity->getName().toStdString() << std::endl
-			  << "Parrent name:       " << entity->getParent()->getName().toStdString() << std::endl
-			  << "Grandparrents name: " << entity->getParent()->getParent()->getName().toStdString() << std::endl;
+	std::cout << "Store " << type << " for: " << mapit_entity_name << std::endl;
 
 	if (entity->isA(CC_TYPES::POINT_CLOUD)) {
 		// TODO
