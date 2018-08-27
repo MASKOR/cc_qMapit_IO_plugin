@@ -27,6 +27,9 @@ namespace mapit {
 namespace msgs {
 class Entity;
 }
+namespace tf2 {
+class BufferCore;
+}
 typedef std::string Path;
 class Workspace;
 }
@@ -56,6 +59,7 @@ private:
 	std::string frame_id_;
 	std::string cc_mapit_file_name_ = "";
 	std::shared_ptr<mapit::Workspace> workspace_;
+	std::shared_ptr<mapit::tf2::BufferCore> tf_buffer_ = nullptr;
 
 	CC_FILE_ERROR load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const mapit::Path &path, ccHObject* container);
 	CC_FILE_ERROR store_transform(ccHObject* entity, std::string mapit_entity_name);

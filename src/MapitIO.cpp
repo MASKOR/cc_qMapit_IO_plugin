@@ -252,10 +252,18 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 		if        (file_part_to_be_read == FilePartToRead::WORKSPACE) {
 			name_workspace_ = line;
 		} else if (file_part_to_be_read == FilePartToRead::FILES) {
-			name_files_.push_back( line );
+			if ( ! line.empty() ) {
+				name_files_.push_back( line );
+			}
 		} else if (file_part_to_be_read == FilePartToRead::FRAME_ID) {
 			frame_id_ = line;
 		}
+	}
+	log_info("workspace: " << name_workspace_);
+	log_info("frame_id:  " << frame_id_);
+	log_info("files:");
+	for (std::string name_file : name_files_) {
+		log_info("  - " << name_file);
 	}
 
 	// open the mapit repo within the cc-mapit file is located
@@ -278,6 +286,11 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 	container_new->setEnabled(false);
 	container_current->addChild(container_new);
 	container_current = container_new;
+
+	// create tf buffer
+	log_info("Start to create the tf buffer");
+	tf_buffer_ = std::make_shared<mapit::tf2::BufferCore>(workspace_.get(), "/tf/");
+	log_info("Tf buffer created");
 
 	// go though whole workspace and load all selected files to CC
 	workspace_->depthFirstSearch(
@@ -314,6 +327,7 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 						  }
 					  }
 					  if (found) {
+						  log_info("found entity " << path);
 						  QString name = QString::fromStdString( path.substr(path.find_last_of("/") + 1, path.length()) );
 
 						  ccHObject* container_new = new ccHObject();
@@ -344,17 +358,18 @@ CC_FILE_ERROR MapitFilter::loadFile(const QString& filename, ccHObject& containe
 CC_FILE_ERROR
 MapitFilter::load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const mapit::Path &path, ccHObject* container)
 {
+	log_info("start to load pointcloud");
 	std::shared_ptr<mapit::AbstractEntitydata> entity_data_abstract = workspace_->getEntitydataReadOnly(path);
 	std::shared_ptr<PointcloudEntitydata> entity_data = std::static_pointer_cast<PointcloudEntitydata>(entity_data_abstract);
 
 	std::shared_ptr<pcl::PCLPointCloud2> cloud_ptr_in = entity_data->getData();
 	boost::shared_ptr<pcl::PCLPointCloud2> cloud_ptr = boost::make_shared<pcl::PCLPointCloud2>(*cloud_ptr_in);
 
+	log_info("  start to lookup transform");
 	// TODO transform to frame_id_
-	mapit::tf2::BufferCore tf_buffer(workspace_.get(), "/tf/");
 	mapit::tf::TransformStamped tf;
 	try {
-		tf = tf_buffer.lookupTransform(frame_id_, obj->frame_id(), mapit::time::from_msg(obj->stamp()));
+		tf = tf_buffer_->lookupTransform(frame_id_, obj->frame_id(), mapit::time::from_msg(obj->stamp()));
 	} catch (...) {
 		ccLog::Error(QString::fromStdString(
 						 "Can't lookup transform " + frame_id_ + " -> " + obj->frame_id()
@@ -363,8 +378,9 @@ MapitFilter::load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const map
 					 );
 		return CC_FERR_BAD_ARGUMENT;
 	}
+	log_info("  transform pointcloud");
 	transformPointCloud(tf, *cloud_ptr_in, *cloud_ptr);
-
+	log_info("  start to convert to CC");
 
 //	PCLCloud::Ptr cloud_ptr;
 //	if (!cloud_ptr_in->is_dense) //data may contain NaNs --> remove them
@@ -426,6 +442,7 @@ MapitFilter::load_pointcloud(std::shared_ptr<mapit::msgs::Entity> obj, const map
 	}
 
 	container->addChild(ccCloud);
+	log_info("done");
 }
 
 CC_FILE_ERROR
